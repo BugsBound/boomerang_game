@@ -2,8 +2,8 @@ use crossterm::{
     event::{poll, read, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use std::process::Command;
 use std::error::Error;
+use std::process::Command;
 use std::time::Duration;
 
 pub enum Proportions {
@@ -17,25 +17,25 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn new(x : Proportions, y : Proportions) -> Field {
+    pub fn new(x: Proportions, y: Proportions) -> Field {
         Field {
             height: Self::check_range(x),
             width: Self::check_range(y),
         }
     }
 
-    fn check_range(proportions : Proportions) -> u8 {
+    fn check_range(proportions: Proportions) -> u8 {
         match proportions {
             Proportions::Height(x) => {
-                if x > 20 || x < 1 {
+                if !(1..=20).contains(&x) {
                     println!("SetDefaul for height - 10");
                     10
                 } else {
                     x
                 }
-            },
+            }
             Proportions::Width(x) => {
-                if x < 50 || x > 80 {
+                if !(50..=80).contains(&x) {
                     println!("SetDefault for width - 60");
                     60
                 } else {
@@ -60,7 +60,6 @@ struct Boomerang {
     is_fly: bool,
     entity: Entity,
     max_range: u8,
-    start_position: u8,
     iterators: u8,
 }
 
@@ -79,7 +78,6 @@ impl Boomerang {
             is_danger: false,
             is_fly: false,
             max_range: 20,
-            start_position: 0,
             iterators: 0,
             entity,
         }
@@ -220,17 +218,17 @@ impl Game {
             is_end: false,
             field,
             player,
-            boomerang ,
-            enemies}
+            boomerang,
+            enemies,
+        }
     }
 
-    fn set_data(x : &str) -> Result<u8, &'static str> {
+    fn set_data(x: &str) -> Result<u8, &'static str> {
         println!("Enter {}", x);
         let mut num = String::new();
 
-        match std::io::stdin().read_line(&mut num) {
-            Err(_) => return Err("Can't read"),
-            Ok(_) => {},
+        if std::io::stdin().read_line(&mut num).is_err() {
+            return Err("Can't read")
         }
 
         let num: u8 = match num.trim().parse() {
@@ -244,11 +242,10 @@ impl Game {
     fn start_game() -> Result<Field, &'static str> {
         println!("BUMERANG!");
 
-        Ok(
-            Field::new(
-                Proportions::Height(Self::set_data("height")?),
-                Proportions::Width(Self::set_data("width")?))
-        )
+        Ok(Field::new(
+            Proportions::Height(Self::set_data("height")?),
+            Proportions::Width(Self::set_data("width")?),
+        ))
     }
 
     fn draw(&self) {
@@ -258,21 +255,24 @@ impl Game {
         let width = field[0].len();
 
         if !self.boomerang.is_hide {
-            field[self.boomerang.entity.position_raw as usize][self.boomerang.entity.position_col as usize] = &self.boomerang.entity.skin;
+            field[self.boomerang.entity.position_raw as usize]
+                [self.boomerang.entity.position_col as usize] = self.boomerang.entity.skin;
         }
 
-        field[self.player.entity.position_raw as usize][self.player.entity.position_col as usize] = &self.player.entity.skin;
+        field[self.player.entity.position_raw as usize][self.player.entity.position_col as usize] =
+            self.player.entity.skin;
 
-        let top = format!("{}", &"=".repeat(width + 2));
+        let top = "=".repeat(width + 2);
 
         for enemy in &self.enemies {
-            field[enemy.entity.position_raw as usize][enemy.entity.position_col as usize] = &enemy.entity.skin;
+            field[enemy.entity.position_raw as usize][enemy.entity.position_col as usize] =
+                enemy.entity.skin;
         }
 
         println!("{top}");
 
-        for i in 0..height {
-            println!("|{}|", field[i].join(""));
+        for item in field.iter().take(height) {
+            println!("|{}|", item.join(""));
         }
 
         println!("{top}");
@@ -296,26 +296,23 @@ impl Game {
                 self.boomerang.fly();
             }
 
-
-
             for enemy in &mut self.enemies {
-                if self.boomerang.is_danger &&
-                    enemy.entity.position_raw == self.boomerang.entity.position_raw &&
-                    (
-                        self.boomerang.entity.position_col == enemy.entity.position_col ||
-                            self.boomerang.entity.position_col + 1 == enemy.entity.position_col ||
-                            self.boomerang.entity.position_col + 2 == enemy.entity.position_col ||
-                            self.boomerang.entity.position_col + 3 == enemy.entity.position_col ||
-                            self.boomerang.entity.position_col + 4 == enemy.entity.position_col
-                    )
+                if self.boomerang.is_danger
+                    && enemy.entity.position_raw == self.boomerang.entity.position_raw
+                    && (self.boomerang.entity.position_col == enemy.entity.position_col
+                        || self.boomerang.entity.position_col + 1 == enemy.entity.position_col
+                        || self.boomerang.entity.position_col + 2 == enemy.entity.position_col
+                        || self.boomerang.entity.position_col + 3 == enemy.entity.position_col
+                        || self.boomerang.entity.position_col + 4 == enemy.entity.position_col)
                 {
                     enemy.is_alive = false;
                 } else {
                     enemy.enemy_move();
                 }
 
-                if self.player.entity.position_raw == enemy.entity.position_raw &&
-                    self.player.entity.position_col == enemy.entity.position_col {
+                if self.player.entity.position_raw == enemy.entity.position_raw
+                    && self.player.entity.position_col == enemy.entity.position_col
+                {
                     self.player.is_alive = false;
                 }
             }
@@ -329,23 +326,22 @@ impl Game {
             if poll(Duration::from_millis(100))? {
                 let ev = read()?;
 
-                match ev {
-                    Event::Key(event) => match event.code {
+                if let Event::Key(event) = ev { match event.code {
                         KeyCode::Char('q') => {
                             self.is_end = true;
-                        },
+                        }
                         KeyCode::Char('w') => {
                             self.player.move_up();
-                        },
+                        }
                         KeyCode::Char('s') => {
                             self.player.move_down();
-                        },
+                        }
                         KeyCode::Char('a') => {
                             self.player.move_left();
-                        },
+                        }
                         KeyCode::Char('d') => {
                             self.player.move_right();
-                        },
+                        }
                         KeyCode::Char(' ') => {
                             if self.player.has_boomerang {
                                 self.player.has_boomerang = false;
@@ -354,26 +350,28 @@ impl Game {
                                 self.boomerang.is_fly = true;
                                 self.boomerang.is_hide = false;
 
-                                if self.player.entity.position_col + 2 < self.player.entity.max_col {
-                                    self.boomerang.entity.position_col = self.player.entity.position_col + 2;
+                                if self.player.entity.position_col + 2 < self.player.entity.max_col
+                                {
+                                    self.boomerang.entity.position_col =
+                                        self.player.entity.position_col + 2;
                                 } else {
-                                    self.boomerang.entity.position_col = self.player.entity.position_col;
+                                    self.boomerang.entity.position_col =
+                                        self.player.entity.position_col;
                                 }
 
-                                self.boomerang.entity.position_raw = self.player.entity.position_raw;
+                                self.boomerang.entity.position_raw =
+                                    self.player.entity.position_raw;
                                 self.boomerang.iterators = 38;
                             }
-                        },
-                        _ => {}
-                    },
+                        }
                     _ => {}
-                }
+                } }
 
-                if !self.boomerang.is_hide &&
-                    !self.player.has_boomerang &&
-                    !self.boomerang.is_fly &&
-                    self.boomerang.entity.position_col == self.player.entity.position_col &&
-                    self.boomerang.entity.position_raw == self.player.entity.position_raw
+                if !self.boomerang.is_hide
+                    && !self.player.has_boomerang
+                    && !self.boomerang.is_fly
+                    && self.boomerang.entity.position_col == self.player.entity.position_col
+                    && self.boomerang.entity.position_raw == self.player.entity.position_raw
                 {
                     self.boomerang.is_hide = true;
                     self.player.has_boomerang = true;
@@ -387,9 +385,7 @@ impl Game {
     }
 }
 
-
-
-fn clear_console(is_unix : bool) {
+fn clear_console(is_unix: bool) {
     if is_unix {
         // Для Unix-подобных систем (Linux, macOS)
         let _ = Command::new("clear").status();
